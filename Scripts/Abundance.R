@@ -125,15 +125,15 @@ params<-c("beta.a0", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N")
 # MCMC settings
 # pavail can be subject to poor mixing in field data - keep thin high, burn-in long, and conduct sufficient number of iterations
 nc<-3
-ni<-4000
-nb<-1000
+ni<-6000
+nb<-3000
 nt<-3
 
 ## ONLY WORKS IN JAGS
 # A bug fix for JAGS - model may produce error without this fix
 set.factory("bugs::Conjugate", FALSE, type="sampler")
 
-sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_model.txt",
+sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_unequal_time.txt",
               n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni,
               parallel = TRUE,
               n.cores = 3) #  inits=inits, 

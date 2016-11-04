@@ -1,4 +1,4 @@
-sink("jags_model.txt")
+sink("jags_equal_time.txt")
 cat("
     model {
     
