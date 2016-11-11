@@ -28,8 +28,23 @@ df_counts[6:ncol(df_counts)] %>%
 
 # GRCA one of most abundant
 
+# Get detection covariates
+df_detect <- read.csv("Data/covs_detect.csv", stringsAsFactors = FALSE, header = TRUE)
+
+df_detect$Date <- mdy(df_detect$Date)
+df_detect$Time <- strptime(df_detect$Time, "%H:%M")
+df_detect$time <-as.numeric(df_detect$Time)
+df_detect$day <- as.integer(strftime(df_detect$Date, format = "%j"))
+
+str(df_detect)
+
+# Standardize continuous covariates
 
 
+# Get Abundance covariates
+df_abund <- read.csv("Data/covs_abund.csv", stringsAsFactors = FALSE, header = TRUE)
+
+str(df_abund)
 
 # y = count of birds per point
 # surveyid = survey point/site ID for each individual observed

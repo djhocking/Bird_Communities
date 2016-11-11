@@ -1,5 +1,5 @@
 sink("jags_full_2015.txt")
-  cat(
+  cat("
       model {
       
       # PRIORS for fixed detection parameters
@@ -19,7 +19,7 @@ sink("jags_full_2015.txt")
       # log(sigma[k]) <- log(sigma.0) + beta.p1*tree[k] 
       sigma[k] ~ dunif(0, 100)
       # add covariates for availability here TIME-REMOVAL (availability)
-        p.a.mu[k] <- beta.a0 + beta.a1*day + beta.a2*day*day + beta.a3*time + beta.a4*time*time # day of year, time of day, weather, wind (hard because categorical)
+        p.a.mu[k] <- beta.a0 + beta.a1*day[k] + beta.a2*day[k]*day[k] + beta.a3*time[k] + beta.a4*time[k]*time[k] # day of year, time of day, weather, wind (hard because categorical)
       p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) 
       # manual logit above to avoid BUGS issues with logit function
       
