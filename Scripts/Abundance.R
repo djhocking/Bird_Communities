@@ -33,18 +33,86 @@ df_detect <- read.csv("Data/covs_detect.csv", stringsAsFactors = FALSE, header =
 
 df_detect$Date <- mdy(df_detect$Date)
 df_detect$Time <- strptime(df_detect$Time, "%H:%M")
-df_detect$time <-as.numeric(df_detect$Time)
+df_detect$timeofday <-as.numeric(df_detect$Time)
 df_detect$day <- as.integer(strftime(df_detect$Date, format = "%j"))
 
 str(df_detect)
 
 # Standardize continuous covariates
+# beta.a0 + beta.a1*day[k] + beta.a2*day[k]*day[k] + beta.a3*time[k] + beta.a4*time[k]*time[k]
+std_covs <- function(x) {
+  std <- (x - mean(x)) / sd(x)
+  return(std)
+}
+# std_covs(df_detect$day) # test
+df_detect <- df_detect %>%
+  dplyr::select(-Time) %>%
+  dplyr::filter(Year == "2015") %>%
+  dplyr::mutate(day_std = std_covs(day),
+                time_std = std_covs(timeofday))
 
+summary(df_detect)
 
 # Get Abundance covariates
 df_abund <- read.csv("Data/covs_abund.csv", stringsAsFactors = FALSE, header = TRUE)
 
 str(df_abund)
+
+# Standardize abundance covariates
+#beta0 + beta1*GMU[k] + beta2*VegHgt[k] + beta3*VegHgt_SD[k] 
+df_abund2 <- df_abund[1:8]
+
+df_abund3 <- df_abund[9:ncol(df_abund)] %>%
+  dplyr::mutate()
+
+df_abund_std <- df_abund %>%
+  dplyr::mutate_each(., funs(std_covs), VegHgt_Avg, VegHgt_Stdv)
+
+# check for excessive correlation (>0.7 once standardized)
+### Scatterplot Matrix ###
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor) 
+{
+  usr <- par("usr"); on.exit(par(usr)) 
+  par(usr = c(0, 1, 0, 1)) 
+  r <- abs(cor(x, y)) 
+  txt <- format(c(r, 0.123456789), digits=digits)[1] 
+  txt <- paste(prefix, txt, sep="") 
+  if(missing(cex.cor)) cex <- 0.8/strwidth(txt) 
+  
+  test <- cor.test(x,y) 
+  # borrowed from printCoefmat
+  Signif <- symnum(test$p.value, corr = FALSE, na = FALSE, 
+                   cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                   symbols = c("***", "**", "*", ".", " ")) 
+  
+  text(0.5, 0.5, txt, cex = cex * r) 
+  text(.8, .8, Signif, cex=cex, col=2) 
+}
+
+## put histograms on the diagonal
+panel.hist <- function(x, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col="gray", ...)
+}
+
+
+panel.diff <- function(x,y, digits=2, prefix="", cex.cor){
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  Diff <- max(abs(x - y))
+  txt <- format(c(Diff, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  #if(missing(cex.cor)) cex <- 0.9/strwidth(txt)
+  text(0.5, 0.5, txt, cex = 1)
+}
+
+Pairs <- df_abund_std[ , c("GMU", "VegHgt_Avg", "VegHgt_Stdv", "LD_Avg", "Avg_Canopy", "GCVR_Forb", "Shrub_stm_total", "Tree_stm_total")]
+pairs(Pairs, upper.panel=panel.smooth, lower.panel=panel.cor, diag.panel=panel.hist)
 
 # y = count of birds per point
 # surveyid = survey point/site ID for each individual observed
