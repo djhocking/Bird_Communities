@@ -1,5 +1,4 @@
-sink("jags_full_2015.txt")
-  cat("
+
       model {
       
       # PRIORS for fixed detection parameters
@@ -111,5 +110,4 @@ sink("jags_full_2015.txt")
       
       }
       
-      ", fill=TRUE)
-  sink()
+      

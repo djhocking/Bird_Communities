@@ -66,7 +66,7 @@ df_abund3 <- df_abund[9:ncol(df_abund)] %>%
   dplyr::mutate()
 
 df_abund_std <- df_abund %>%
-  dplyr::mutate_each(., funs(std_covs), VegHgt_Avg, VegHgt_Stdv)
+  dplyr::mutate_each(., funs(std_covs), VegHgt_Avg, VegHgt_Stdv, LD_Avg, LD_Stdv, Avg_Canopy, GCVR_Forb, GCVR_ShrubTree, Shrub_stm_total, Tree_stm_total)
 
 # check for excessive correlation (>0.7 once standardized)
 ### Scatterplot Matrix ###
@@ -111,8 +111,10 @@ panel.diff <- function(x,y, digits=2, prefix="", cex.cor){
   text(0.5, 0.5, txt, cex = 1)
 }
 
-Pairs <- df_abund_std[ , c("GMU", "VegHgt_Avg", "VegHgt_Stdv", "LD_Avg", "Avg_Canopy", "GCVR_Forb", "Shrub_stm_total", "Tree_stm_total")]
+Pairs <- df_abund_std[ , c("GMU", "VegHgt_Avg", "VegHgt_Stdv", "LD_Avg", "LD_Stdv", "Avg_Canopy", "GCVR_Forb", "Shrub_stm_total", "Tree_stm_total")]
 pairs(Pairs, upper.panel=panel.smooth, lower.panel=panel.cor, diag.panel=panel.hist)
+
+# Use (GMU - maybe), VegHgt_Avg, Shrub_stm_total, Tree_stm_total
 
 # y = count of birds per point
 # surveyid = survey point/site ID for each individual observed
@@ -176,7 +178,12 @@ jags_data<-list(y=y,
                mdpts=c(25, 75, 125),
                maxd=150,
                J=max(unique(tinterval)),
-               tinterval=as.numeric(tinterval)
+               tinterval=as.numeric(tinterval),
+               day = df_detect$day_std,
+               time = df_detect$time_std,
+               VegHgt = df_abund_std$VegHgt_Avg,
+               Shrub_stm_total = df_abund_std$Shrub_stm_total,
+               Tree_stm_total = df_abund_std$Tree_stm_total
                )
 
 # create initial values for N and navail that are very close to actual values or model will not run!
@@ -186,16 +193,16 @@ Nst <- jags_data$y + 1
 inits <- function() {
   list(N=Nst,
        navail=Nst,
-       sigma.0=runif(1,120,150), 
-       beta.a1=runif(1,-1,1),
-       beta1=runif(1,-1,1),
-       beta2=runif(1,-1,1),
-       mu.tran=runif(1,-1,1),
-       sd.tran=runif(1,0,2),
-       beta3=runif(1,-1,1),
-       beta4=runif(1,-1,1),
-       beta5=runif(1,-1,1),
-       beta.p1=runif(1,-1,1),
+       # sigma.0=runif(1,120,150), 
+       # beta.a1=runif(1,-1,1),
+       # beta1=runif(1,-1,1),
+       # beta2=runif(1,-1,1),
+       # mu.tran=runif(1,-1,1),
+       # sd.tran=runif(1,0,2),
+       # beta3=runif(1,-1,1),
+       # beta4=runif(1,-1,1),
+       # beta5=runif(1,-1,1),
+       # beta.p1=runif(1,-1,1),
        beta.a0=runif(1,-1,1)
        )
   } #
@@ -216,7 +223,7 @@ nt<-3
 # A bug fix for JAGS - model may produce error without this fix
 set.factory("bugs::Conjugate", FALSE, type="sampler")
 
-sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_unequal_time.txt",
+sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_full_2015.txt",
               n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni,
               parallel = TRUE,
               n.cores = 3) #  inits=inits, 
