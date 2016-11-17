@@ -14,6 +14,7 @@ sink("jags_full_2015.txt")
         beta2 ~ dnorm(0,0.01)
         beta3 ~ dnorm(0,0.01)
         beta4 ~ dnorm(0,0.01)
+sigma.0~dunif(0,500)
 
 # random effect of location (Point)
 for(l in 1:n_points) {
@@ -24,12 +25,14 @@ sigma.eps.n ~ dunif(0, 10)
       
       # DETECTION PROBABILITY FUNCTIONS  
       for(k in 1:nsurveys){ 
+
       # add covariates to scale parameter  DISTANCE (perceptibility)
-      # log(sigma[k]) <- log(sigma.0) + beta.p1*tree[k] 
-      sigma[k] ~ dunif(0, 100)
+      log(sigma[k]) <- log(sigma.0) # + beta.p1*tree[k] 
+      # sigma[k] ~ dunif(0, 100)
+
       # add covariates for availability here TIME-REMOVAL (availability)
-        p.a.mu[k] <- beta.a0 #+ beta.a1*day[k] + beta.a2*day[k]*day[k] + beta.a3*time[k] + beta.a4*time[k]*time[k] # day of year, time of day, weather, wind (hard because categorical)
-      p.a[k] <- exp(beta.a0) / (1 + exp(beta.a0)) 
+        p.a.mu[k] <- beta.a0 + beta.a1*day[point[k]] + beta.a2*day[point[k]]*day[point[k]] + beta.a3*time[point[k]] + beta.a4*time[point[k]]*time[point[k]] # day of year, time of day, weather, wind (hard because categorical)
+      p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) 
       # manual logit above to avoid BUGS issues with logit function
       
       p.a.t[k] <- p.a[k] / 10 # probability of capture per minute at a given point k
@@ -84,7 +87,7 @@ sigma.eps.n ~ dunif(0, 10)
       N[k] ~ dpois(lambda[k]) # predicted abundance per survey/site/point
       
       # Add site-level covariates to lambda
-      log(lambda[k]) <- beta0 + eps.n[point[k]] #+ beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k] + beta3*Shrub_stm_total[k] + beta4*Tree_stm_total[k] # beta0[tran[k]]
+      log(lambda[k]) <- beta0 + eps.n[point[k]] + beta1*VegHgt[point[k]] + beta2*VegHgt[point[k]]*VegHgt[point[k]] + beta3*Shrub_stm_total[point[k]] + beta4*Tree_stm_total[point[k]] # beta0[tran[k]]
       # lambda[k] ~ dunif(0, 10000)
       }
 

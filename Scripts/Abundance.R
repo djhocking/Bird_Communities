@@ -220,14 +220,14 @@ inits <- function() {
 # parameters to estimate
 # careful printing pavail, pdet and N - will have nsites (e.g., in this example 100) values
 # params<-c("meansig","meanpdet","meanpavail","beta.a0","beta.a1","sigma.0","beta.p1","beta1","beta2","beta3","beta4","beta5","meanN","mu.tran","sd.tran","totN","bayesp.pa","bayesp.pd","beta0","beta.tran","N")
-params<-c("beta.a0", "beta0", "sigma.eps.n", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N")
+params<-c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.eps.n", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N")
 
 # MCMC settings
 # pavail can be subject to poor mixing in field data - keep thin high, burn-in long, and conduct sufficient number of iterations
 nc<-3
-ni<-6000
+ni<-60000
 nb<-3000
-nt<-3
+nt<-1
 
 ## ONLY WORKS IN JAGS
 # A bug fix for JAGS - model may produce error without this fix
