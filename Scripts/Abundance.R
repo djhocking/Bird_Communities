@@ -26,6 +26,8 @@ df_counts[6:ncol(df_counts)] %>%
   dplyr::summarise_each(funs(sd)) %>%
   t(.)
 
+str(df_counts)
+
 # GRCA one of most abundant
 
 # Get detection covariates
@@ -151,8 +153,8 @@ pairs(Pairs, upper.panel=panel.smooth, lower.panel=panel.cor, diag.panel=panel.h
 # GRCA one of most abundant
 y <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
-  dplyr::select(GRCA) %>%
-  .[["GRCA"]]
+  dplyr::select(AMGO) %>%
+  .[["AMGO"]]
 
 surveyid <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
@@ -167,12 +169,20 @@ nsites <- length(unique(surveyid))
 tinterval <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
   .[["Time_bin"]]
+
+df_abund_std <- df_abund_std %>%
+  dplyr::filter(Year == 2015)
+
+point <- as.integer(df_counts[which(df_counts$Visit == 1), ]$ID)
+n_points <- length(unique(point))
   
 jags_data<-list(y=y,
                surveyid=as.numeric(surveyid),
                dclass=as.numeric(dclass),
                nsurveys=nsites,
                nobs=sum(y, na.rm = TRUE),
+               n_points = n_points,
+               point = point,
                delta=50, # c(50, 50, 100),
                nbreaks=3,
                mdpts=c(25, 75, 125),
@@ -192,7 +202,7 @@ Nst <- jags_data$y + 1
 # Inits function
 inits <- function() {
   list(N=Nst,
-       navail=Nst,
+       # navail=Nst,
        # sigma.0=runif(1,120,150), 
        # beta.a1=runif(1,-1,1),
        # beta1=runif(1,-1,1),
@@ -203,14 +213,14 @@ inits <- function() {
        # beta4=runif(1,-1,1),
        # beta5=runif(1,-1,1),
        # beta.p1=runif(1,-1,1),
-       beta.a0=runif(1,-1,1)
+        beta.a0=runif(1,0,9)
        )
   } #
 
 # parameters to estimate
 # careful printing pavail, pdet and N - will have nsites (e.g., in this example 100) values
 # params<-c("meansig","meanpdet","meanpavail","beta.a0","beta.a1","sigma.0","beta.p1","beta1","beta2","beta3","beta4","beta5","meanN","mu.tran","sd.tran","totN","bayesp.pa","bayesp.pd","beta0","beta.tran","N")
-params<-c("beta.a0", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N")
+params<-c("beta.a0", "beta0", "sigma.eps.n", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N")
 
 # MCMC settings
 # pavail can be subject to poor mixing in field data - keep thin high, burn-in long, and conduct sufficient number of iterations
