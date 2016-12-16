@@ -31,12 +31,9 @@ sigma.eps.n ~ dunif(0, 10)
       # sigma[k] ~ dunif(0, 100)
 
       # add covariates for availability here TIME-REMOVAL (availability)
-        p.a.mu[k] <- beta.a0 + beta.a1*day[point[k]] + beta.a2*day[point[k]]*day[point[k]] + beta.a3*time[point[k]] + beta.a4*time[point[k]]*time[point[k]] # day of year, time of day, weather, wind (hard because categorical)
+        p.a.mu[k] <- beta.a0 #+ beta.a1*day[point[k]] + beta.a2*day[point[k]]*day[point[k]] + beta.a3*time[point[k]] + beta.a4*time[point[k]]*time[point[k]] # day of year, time of day, weather, wind (hard because categorical)
       p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) 
       # manual logit above to avoid BUGS issues with logit function
-      
-      p.a.t[k] <- p.a[k] / 10 # probability of capture per minute at a given point k
-      q[k] <- 1 - p.a.t[k] # prob of not capturing during a given minute at point k
       
       ######## Distance sampling detection probability estimation
       # Using summation technique - Pr(p of x)=exp(-x^2/2*sigma^2)*f(x)
@@ -54,16 +51,16 @@ sigma.eps.n ~ dunif(0, 10)
       ######## Time-removal detection probability estimation
       
       # Removal detection prob for each of 3 time periods - currently hard coded for 3,2, 5 min intervals
-      pi.pa[1, k] <- 1 - pow(q[k], 3)
-      pi.pa[2, k] <- (1 - pow(q[k], 2)) * (1 - pi.pa[1, k])
-      pi.pa[3, k] <- (1 - pow(q[k], 5)) * (1 - pi.pa[1, k]) * (1 - pi.pa[2, k])
-      
-      # pi.pa[1, k] <- pow(p.a.t[k], 3.3)
-      # pi.pa[2, k] <- pow(p.a.t[k], 3) * (1 - pi.pa[1, k])
-      # pi.pa[3, k] <- pow(p.a.t[k], 3) * (1 - pi.pa[1, k]) * (1 - pi.pa[2, k])
+     # p.a.t[k] <- p.a[k] / 10 # probability of capture per minute at a given point k
+     # q[k] <- 1 - p.a.t[k] # prob of not capturing during a given minute at point k
+# q[k] <- (1 - pavail[k])/10 # prob of not capturing during a given minute at point k
+# 
+#       pi.pa[1, k] <- 1 - pow(q[k], 3)
+#       pi.pa[2, k] <- (1 - pow(q[k], 2)) * (1 - pi.pa[1, k])
+#       pi.pa[3, k] <- (1 - pow(q[k], 5)) * (1 - pi.pa[1, k]) * (1 - pi.pa[2, k])
 
       for (j in 1:J) {
-      # pi.pa[j,k] <- p.a[k] * pow(1-p.a[k], (j-1)) # see salamander example, Royle and Dorazio (2008)
+      pi.pa[j,k] <- p.a[k] * pow(1-p.a[k], (j-1)) # see salamander example, Royle and Dorazio (2008)
       pi.pa.c[j,k] <- pi.pa[j,k] / pavail[k] # standardizing based on overall availability - conditional formulation
       }
       pavail[k] <- sum(pi.pa[,k]) # probability of capture is the sum of all time intervals
@@ -111,14 +108,14 @@ sigma.eps.n ~ dunif(0, 10)
       # fit.new.pa<- sum(E.New.pa[])
       # 
       # ######## Summary stats
-      meanpavail<-mean(pavail[]) # mean probability of availability
-      meanpdet<-mean(pdet[]) # mean probability of perceptibility
-      # bayesp.pd<-step(fit.new.pd-fit.pd) # Bayesian p-value for perceptibility model
-      # bayesp.pa<-step(fit.new.pa-fit.pa) # Bayesian p-value for availability model
-      meanN<-mean(N[]) # mean site-level abundance
-      totN<-sum(N[])  # population size of total area surveyed
-      # meansig<-mean(sigma[]) # mean scale parameter across sites
-      dens<-meanN/(maxd*maxd*3.14159/10000) # density of birds per ha
+      # meanpavail<-mean(pavail[]) # mean probability of availability
+      # meanpdet<-mean(pdet[]) # mean probability of perceptibility
+      # # bayesp.pd<-step(fit.new.pd-fit.pd) # Bayesian p-value for perceptibility model
+      # # bayesp.pa<-step(fit.new.pa-fit.pa) # Bayesian p-value for availability model
+      # meanN<-mean(N[]) # mean site-level abundance
+      # totN<-sum(N[])  # population size of total area surveyed
+      # # meansig<-mean(sigma[]) # mean scale parameter across sites
+      # dens<-meanN/(maxd*maxd*3.14159/10000) # density of birds per ha
       
       }
       
