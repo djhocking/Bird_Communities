@@ -153,8 +153,8 @@ pairs(Pairs, upper.panel=panel.smooth, lower.panel=panel.cor, diag.panel=panel.h
 # GRCA one of most abundant
 y <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
-  dplyr::select(AMGO) %>%
-  .[["AMGO"]]
+  dplyr::select(YEWA) %>%
+  .[["YEWA"]]
 
 surveyid <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
@@ -238,9 +238,9 @@ sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_full_20
               parallel = TRUE,
               n.cores = 3) #  inits=inits, 
 
-names(sim_fit)
-str(sim_fit)
-summary(sim_fit)
+# names(sim_fit)
+# str(sim_fit)
+# summary(sim_fit)
 jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.eps.n", "N[1]", "dens"))
 
 
