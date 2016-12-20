@@ -16,7 +16,7 @@ beta0 <- exp(ln.beta0)
         beta3 ~ dnorm(0,0.01)
         beta4 ~ dnorm(0,0.01)
         beta.p1 ~ dnorm(0,0.01)
-sigma.0~dunif(0,500)
+ sigma.0~dunif(0, 200)
 
 # random effect of location (Point)
 for(l in 1:n_points) {
@@ -29,11 +29,11 @@ sigma.eps.n ~ dunif(0, 10)
       for(k in 1:nsurveys){ 
 
       # add covariates to scale parameter  DISTANCE (perceptibility)
-      log(sigma[k]) <- log(sigma.0) + beta.p1*VegHgt[k] # + beta.p1*tree[k] 
+       log(sigma[k]) <- log(sigma.0) + beta.p1*VegHgt[point[k]] # + beta.p1*tree[k] 
       # sigma[k] ~ dunif(0, 100)
 
       # add covariates for availability here TIME-REMOVAL (availability)
-        p.a.mu[k] <- beta.a0 #+ beta.a1*day[point[k]] + beta.a2*day[point[k]]*day[point[k]] + beta.a3*time[point[k]] + beta.a4*time[point[k]]*time[point[k]] # day of year, time of day, weather, wind (hard because categorical)
+        p.a.mu[k] <- beta.a0 + beta.a1*day[k] + beta.a3*time[k] # day of year, time of day, weather, wind (hard because categorical) beta.a2*day[k]*day[k] + + beta.a4*time[k]*time[k] 
 
       p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) 
       # manual logit above to avoid BUGS issues with logit function
@@ -54,20 +54,12 @@ sigma.eps.n ~ dunif(0, 10)
       ######## Time-removal detection probability estimation
       
       # Removal detection prob for each of 3 time periods - currently hard coded for 3,2, 5 min intervals
-     # p.a.t[k] <- p.a[k] / 10 # probability of capture per minute at a given point k
-     # q[k] <- 1 - p.a.t[k] # prob of not capturing during a given minute at point k
-# q[k] <- (1 - pavail[k])/10 # prob of not capturing during a given minute at point k
-# 
-#       pi.pa[1, k] <- 1 - pow(q[k], 3)
-#       pi.pa[2, k] <- (1 - pow(q[k], 2)) * (1 - pi.pa[1, k])
-#       pi.pa[3, k] <- (1 - pow(q[k], 5)) * (1 - pi.pa[1, k]) * (1 - pi.pa[2, k])
-
 pi.pa[1, k] <- 1 - pow((1 - p.a[k]), 3)
 pi.pa[2, k] <- (1 - pow((1 - p.a[k]), 2)) * pow((1 - p.a[k]), 3)
 pi.pa[3, k] <- (1 - pow((1 - p.a[k]), 5)) * pow((1 - p.a[k]), 5)
 
         for (j in 1:J) {
-      # pi.pa[j,k] <- p.a[k] * pow(1-p.a[k], (j-1)) # see salamander example, Royle and Dorazio (2008)
+      # pi.pa[j,k] <- p.a[k] * pow(1-p.a[k], (j-1)) # if intervals are all the same length of time
         pi.pa.c[j,k] <- pi.pa[j,k] / pavail[k] # standardizing based on overall availability - conditional formulation
         }
        pavail[k] <- sum(pi.pa[,k]) # probability of capture is the sum of all time intervals
@@ -91,8 +83,8 @@ pi.pa[3, k] <- (1 - pow((1 - p.a[k]), 5)) * pow((1 - p.a[k]), 5)
       N[k] ~ dpois(lambda[k]) # predicted abundance per survey/site/point
       
       # Add site-level covariates to lambda
-      log(lambda[k]) <- exp(ln.beta0) # + beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k] + beta3*Shrub_stm_total[k] + beta4*Tree_stm_total[k] # + eps.n[k]
-      # lambda[k] ~ dunif(0, 10000)
+      log(lambda[k]) <- exp(ln.beta0) + beta3*Shrub_stm_total[k] + beta4*Tree_stm_total[k] # + eps.n[k] + beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k]
+      # lambda[k] ~ dunif(0, 10000) 
       }
 
       ######## Goodness of fit tests

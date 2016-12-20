@@ -220,7 +220,7 @@ inits <- function() {
 # parameters to estimate
 # careful printing pavail, pdet and N - will have nsites (e.g., in this example 100) values
 # params<-c("meansig","meanpdet","meanpavail","beta.a0","beta.a1","sigma.0","beta.p1","beta1","beta2","beta3","beta4","beta5","meanN","mu.tran","sd.tran","totN","bayesp.pa","bayesp.pd","beta0","beta.tran","N")
-params<-c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "ln.beta0", "beta1", "beta2", "beta3", "beta4", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N", "pavail", "pdet") # "sigma.eps.n", 
+params<-c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "ln.beta0", "beta1", "beta2", "beta3", "beta4", "meanpavail", "meanpdet", "meanN", "totN", "dens", "N", "pavail", "pdet", "sigma.0", "beta.p1", "sigma") # "sigma.eps.n", 
 
 # MCMC settings
 # pavail can be subject to poor mixing in field data - keep thin high, burn-in long, and conduct sufficient number of iterations
@@ -228,6 +228,9 @@ nc<-3
 ni<-18000
 nb<-9000
 nt<-3
+
+ni<-6000
+nb<-3000
 
 ## ONLY WORKS IN JAGS
 # A bug fix for JAGS - model may produce error without this fix
@@ -243,6 +246,7 @@ sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_full_20
 # summary(sim_fit)
 jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.eps.n", "N[1]", "dens"))
 
+jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "N[1]", "sigma.0", "beta.p1"))
 
 # minimum number of birds (total observed)
 N_min <- df_counts %>%
