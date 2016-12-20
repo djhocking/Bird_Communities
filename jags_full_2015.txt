@@ -14,6 +14,7 @@ beta0 <- exp(ln.beta0)
         beta2 ~ dnorm(0,0.01)
         beta3 ~ dnorm(0,0.01)
         beta4 ~ dnorm(0,0.01)
+        beta.p1 ~ dnorm(0,0.01)
 sigma.0~dunif(0,500)
 
 # random effect of location (Point)
@@ -27,11 +28,12 @@ sigma.eps.n ~ dunif(0, 10)
       for(k in 1:nsurveys){ 
 
       # add covariates to scale parameter  DISTANCE (perceptibility)
-      log(sigma[k]) <- log(sigma.0) # + beta.p1*tree[k] 
+      log(sigma[k]) <- log(sigma.0) + beta.p1*VegHgt[k] # + beta.p1*tree[k] 
       # sigma[k] ~ dunif(0, 100)
 
       # add covariates for availability here TIME-REMOVAL (availability)
         p.a.mu[k] <- beta.a0 #+ beta.a1*day[point[k]] + beta.a2*day[point[k]]*day[point[k]] + beta.a3*time[point[k]] + beta.a4*time[point[k]]*time[point[k]] # day of year, time of day, weather, wind (hard because categorical)
+
       p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) 
       # manual logit above to avoid BUGS issues with logit function
       
