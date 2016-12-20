@@ -151,10 +151,15 @@ pairs(Pairs, upper.panel=panel.smooth, lower.panel=panel.cor, diag.panel=panel.h
 # example may assume equal time intervals **************************
 
 # GRCA one of most abundant
+
+# collapse counts to 5 and 5 min intervals
+
+
+
 y <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
-  dplyr::select(YEWA) %>%
-  .[["YEWA"]]
+  dplyr::select(AMGO) %>%
+  .[["AMGO"]]
 
 surveyid <- df_counts %>%
   dplyr::filter(Visit == 1) %>%
@@ -175,26 +180,26 @@ df_abund_std <- df_abund_std %>%
 
 point <- as.integer(df_counts[which(df_counts$Visit == 1), ]$ID)
 n_points <- length(unique(point))
-  
+
 jags_data<-list(y=y,
-               surveyid=as.numeric(surveyid),
-               dclass=as.numeric(dclass),
-               nsurveys=nsites,
-               nobs=sum(y, na.rm = TRUE),
-               n_points = n_points,
-               point = point,
-               delta=50, # c(50, 50, 100),
-               nbreaks=3,
-               mdpts=c(25, 75, 125),
-               maxd=150,
-               J=max(unique(tinterval)),
-               tinterval=as.numeric(tinterval),
-               day = df_detect$day_std,
-               time = df_detect$time_std,
-               VegHgt = df_abund_std$VegHgt_Avg,
-               Shrub_stm_total = df_abund_std$Shrub_stm_total,
-               Tree_stm_total = df_abund_std$Tree_stm_total
-               )
+                surveyid=as.numeric(surveyid),
+                dclass=as.numeric(dclass),
+                nsurveys=nsites,
+                nobs=sum(y, na.rm = TRUE),
+                n_points = n_points,
+                point = point,
+                delta=50, # c(50, 50, 100),
+                nbreaks=3,
+                mdpts=c(25, 75, 125),
+                maxd=150,
+                J=max(unique(tinterval)),
+                tinterval=as.numeric(tinterval),
+                day = df_detect$day_std,
+                time = df_detect$time_std,
+                VegHgt = df_abund_std$VegHgt_Avg,
+                Shrub_stm_total = df_abund_std$Shrub_stm_total,
+                Tree_stm_total = df_abund_std$Tree_stm_total
+)
 
 # create initial values for N and navail that are very close to actual values or model will not run!
 Nst <- jags_data$y + 1
@@ -213,9 +218,9 @@ inits <- function() {
        # beta4=runif(1,-1,1),
        # beta5=runif(1,-1,1),
        # beta.p1=runif(1,-1,1),
-        beta.a0=runif(1,0,9)
-       )
-  } #
+       beta.a0=runif(1,0,9)
+  )
+} #
 
 # parameters to estimate
 # careful printing pavail, pdet and N - will have nsites (e.g., in this example 100) values
@@ -238,9 +243,9 @@ sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_full_20
               parallel = TRUE,
               n.cores = 3) #  inits=inits, 
 
-# names(sim_fit)
-# str(sim_fit)
-# summary(sim_fit)
+names(sim_fit)
+str(sim_fit)
+summary(sim_fit)
 jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.eps.n", "N[1]", "dens"))
 
 
