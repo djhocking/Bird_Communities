@@ -225,8 +225,8 @@ params<-c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "ln.be
 # MCMC settings
 # pavail can be subject to poor mixing in field data - keep thin high, burn-in long, and conduct sufficient number of iterations
 nc<-3
-ni<-6000
-nb<-3000
+ni<-18000
+nb<-9000
 nt<-3
 
 ## ONLY WORKS IN JAGS
