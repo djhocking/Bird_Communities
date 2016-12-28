@@ -6,7 +6,7 @@
 ###############################################################################
 
 # set testing
-testing <- TRUE
+testing <- FALSE
 
 # Load Packages
 library(dplyr)
@@ -328,9 +328,6 @@ sim_fit<-jags(data=jags_data,parameters.to.save=params, model.file="jags_full.tx
 # names(sim_fit)
 # str(sim_fit)
 # summary(sim_fit)
-jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.eps.n", "N[1]", "dens"))
-
-jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "N[1]", "sigma.0", "beta.p1"))
 
 # minimum number of birds (total observed)
 N_min <- df_counts %>%
@@ -349,3 +346,10 @@ N_est <- sim_fit$summary %>%
 N_est <- N_est[ , c("parameter", "50%", "2.5%", "97.5%")]
 
 cbind(N_est, N_min)
+
+# when not testing - change these to save rather than print
+if(testing) {
+jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.eps.n", "N[1]", "dens"))
+
+jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "beta.a4", "beta0", "N[1]", "sigma.0", "beta.p1"))
+}
