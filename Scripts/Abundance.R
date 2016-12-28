@@ -5,6 +5,9 @@
 # October 2016
 ###############################################################################
 
+# set testing
+testing <- TRUE
+
 # Load Packages
 library(dplyr)
 library(lubridate)
@@ -270,7 +273,8 @@ jags_data<-list(y=y,
                time = df_detect$time_std,
                VegHgt = df_abund_std$VegHgt_Avg,
                Shrub_stm_total = df_abund_std$Shrub_stm_total,
-               Tree_stm_total = df_abund_std$Tree_stm_total
+               Tree_stm_total = df_abund_std$Tree_stm_total,
+               Year = df_detect$Year - 2015
                )
 
 # create initial values for N and navail that are very close to actual values or model will not run!
@@ -307,8 +311,10 @@ ni<-18000
 nb<-9000
 nt<-3
 
-ni<-600
-nb<-300
+if(testing == TRUE) {
+  ni<-60
+  nb<-30
+}
 
 ## ONLY WORKS IN JAGS
 # A bug fix for JAGS - model may produce error without this fix
