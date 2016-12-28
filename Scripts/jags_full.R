@@ -1,4 +1,4 @@
-sink("jags_full_2015.txt")
+sink("jags_full.txt")
   cat("
       model {
       
@@ -83,7 +83,7 @@ pi.pa[3, k] <- (1 - pow((1 - p.a[k]), 5)) * pow((1 - p.a[k]), 5)
       N[k] ~ dpois(lambda[k]) # predicted abundance per survey/site/point
       
       # Add site-level covariates to lambda
-      log(lambda[k]) <- exp(ln.beta0) + beta3*Shrub_stm_total[k] + beta4*Tree_stm_total[k] # + eps.n[k] + beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k]
+      log(lambda[k]) <- exp(ln.beta0) + beta3*Shrub_stm_total[pyear[k]] + beta4*Tree_stm_total[pyear[k]] # + eps.n[k] + beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k]
        # lambda[k] ~ dunif(0, 10000) 
       }
 
