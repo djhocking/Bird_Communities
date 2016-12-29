@@ -58,7 +58,10 @@ unique(df_2016$Point) %in% unique(df_2015$Point) # 2 new 2016 sites
 unique(df_2015$Point)
 
 # combine 2 years of point counts with 2 visits each year
-df_counts <- bind_rows(df_2015, df_2016, .id = "id")
+df_counts <- bind_rows(df_2015, df_2016, .id = "id") 
+
+df_counts <- df_counts %>%
+  dplyr::filter(Visit == 1)
 
 # replace NA for all species not found in both years with 0
 df_counts[is.na(df_counts)] <- 0
@@ -80,15 +83,18 @@ str(df_counts)
 summary(df_counts)
 
 (total_counts <- df_counts[6:ncol(df_counts)] %>%
-  dplyr::summarise_each(funs(sum)) %>%
-  t(.))
+    dplyr::summarise_each(funs(sum)) %>%
+    t(.))
 
 variability <- df_counts[6:ncol(df_counts)] %>%
   dplyr::summarise_each(funs(sd)) %>%
   t(.)
 
 # Get detection covariates
-df_detect <- read.csv("Data/covs_detect.csv", stringsAsFactors = FALSE, header = TRUE)
+df_detect <- read.csv("Data/covs_detect.csv", stringsAsFactors = FALSE, header = TRUE) 
+
+df_detect <- df_detect %>%
+  dplyr::filter(Visit == 1)
 
 df_detect$Date <- mdy(df_detect$Date)
 df_detect$Time <- strptime(df_detect$Time, "%H:%M")
@@ -119,7 +125,10 @@ df_detect <- df_detect %>%
 summary(df_detect)
 
 # Get Abundance covariates
-df_abund <- read.csv("Data/covs_abund.csv", stringsAsFactors = FALSE, header = TRUE)
+df_abund <- read.csv("Data/covs_abund.csv", stringsAsFactors = FALSE, header = TRUE) 
+
+df_abund <- df_abund %>%
+  dplyr::filter(Year == 2015)
 
 length(unique(df_abund$Point))
 df_abund <- df_abund %>%
@@ -189,7 +198,7 @@ df_z_spp <- df_counts %>%
 df_bins <- df_counts %>%
   dplyr::select(Point, ID, Year, Visit, Pyear, Survey, Time_bin, Dist_bin) %>%
   dplyr::distinct()
-  
+
 df_z_spp$SurveyID <- 1:nrow(df_z_spp)
 
 # make surveyid df
@@ -197,7 +206,7 @@ df_surveyid <- df_z_spp %>%
   dplyr::select(Point, ID, Year, Visit, Pyear, Survey, SurveyID) 
 
 # loop
-i <- 3 #sp on col 8-81
+i <- 2 #sp on col 8-81
 spp <- names(df_counts[ , 8:81])
 sp <- spp[i]
 vars <- c("Point", "ID", "Year", "Visit", "Pyear", "Survey", "SurveyID", sp)
@@ -216,7 +225,7 @@ df_z <- df_z_spp %>%
 # 
 # df_zz <- subset(df_z, count > 0) # only individuals in population-sites with zero counts are removed temporarily
 # str(df_zz)
-  
+
 # df_obsonly <- data.frame()
 # for(i in 1:length(df_zz$count)){ # basically make 1s for every individual at a site, then link to site id
 #   tmp=df_zz[i,]
@@ -258,7 +267,7 @@ maxd <- 150
 #   # dplyr::filter(Visit == 1) %>%
 #   dplyr::select(one_of(vars)) %>%
 #   dplyr::rename_(count = sp)
-  
+
 ############################ FORMAT DATA FOR JAGS/BUGS ENTRY ##########################################################
 
 # Subset to individuals with greater than zero count again for JAGS data entry
@@ -318,8 +327,8 @@ navail <- jags_data$y + 1
 
 # Inits function
 inits <- function() {
-  list(N=Nst#,
-       # navail=Nst#,
+  list(N=Nst,
+        navail=Nst#,
        # sigma.0=runif(1,120,150), 
        # beta.a1=runif(1,-1,1),
        # beta1=runif(1,-1,1),
@@ -356,9 +365,9 @@ if(testing == TRUE) {
 set.factory("bugs::Conjugate", FALSE, type="sampler")
 
 sim_fit<-jagsUI::jags(data=jags_data,parameters.to.save=params, model.file="jags_min.txt",
-              n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni,
-              parallel = TRUE,
-              n.cores = 3) #  inits=inits, 
+                      n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni,
+                      parallel = TRUE,
+                      n.cores = 3) #  inits=inits, 
 
 # names(sim_fit)
 # str(sim_fit)
