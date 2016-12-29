@@ -194,7 +194,8 @@ df_abund_std <- df_surveyid %>%
 df_abund_std[is.na(df_abund_std)] <- 0
 
 df_detect <- df_surveyid %>%
-  dplyr::left_join(df_detect)
+  dplyr::left_join(df_detect) %>%
+  dplyr::select(-Date)
 
 df_detect[is.na(df_detect)] <- 0
 
@@ -277,6 +278,7 @@ str(jags.data <- list(n=n,
                      B=3, 
                      K=K, 
                      tint=tint, 
+                     day = as.numeric(df_detect$day_std),
                      habitat=as.numeric(df_abund_std$VegHgt_Avg)))
 
 
@@ -288,7 +290,7 @@ cat("
     alpha0 ~ dnorm(0, 0.01)    # intercept for sigma
     alpha1 ~ dnorm(0,0.01)     # slope on sigma covariate
     # Coefficients
-    # beta.a1 ~ dnorm(0,0.01)  # slope for availability covariate
+    beta.a1 ~ dnorm(0,0.01)  # slope for availability covariate
     beta0 ~ dnorm(0,0.01)      # intercept for lambda
     beta1 ~ dnorm(0,0.01)       # slope for lambda covariate
     
@@ -303,9 +305,9 @@ tau.lam <- 1 / (sigma.lam * sigma.lam)
     log(sigma[s]) <- alpha0 + alpha1*habitat[s] 
 
     # Add covariates for availability here TIME-REMOVAL (availability)
-    p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
+    # p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
     # Optional covariates on availability
-    # exp(beta.a0 + beta.a1*date[s])/(1+exp(beta.a0+beta.a1*date[s]))
+    p.a[s] <- exp(beta.a0 + beta.a1*day[s])/(1+exp(beta.a0+beta.a1*day[s]))
 
     # Distance sampling detection probability model
     for(b in 1:nD){
@@ -336,7 +338,7 @@ tau.lam <- 1 / (sigma.lam * sigma.lam)
     for(s in 1:nsites){ 
     # Binomial model for # of captured individuals
     # n[s] ~ dbin(pmarg[s], M[s]) # Formulation b, see text
-    # pmarg[s] <- pdet[s]*phi[s] 
+    # pmarg[s] <- pdet[s]*phi[s]
     n[s] ~ dbin(pdet[s], N[s])    # Formulation a, see text
     N[s] ~ dbin(phi[s],M[s])      # Number of available individuals
     M[s] ~ dpois(lambda[s])       # Abundance per survey/site/point
