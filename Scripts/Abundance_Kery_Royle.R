@@ -246,7 +246,11 @@ n <- df_z$count               # The full site vector
 names(n) <- df_surveyid$SurveyID
 survey <- df_ind$SurveyID
 nobs <- length(survey) 
-
+npoints <- length(unique(df_z$ID))
+df_points <- data.frame(ID = unique(df_z$ID), stringsAsFactors = FALSE)
+df_points$point <- 1:npoints
+df_z <- dplyr::left_join(df_z, df_points)
+point <- df_z$point
 
 y <- df_z$count
 n_breaks <- 3
@@ -265,6 +269,8 @@ str(jags.data <- list(n=n,
                      dclass=as.numeric(dclass),
                      nsites=nsurveys, 
                      nobs=nobs, 
+                     npoints = npoints,
+                     point = point,
                      delta=delta, 
                      nD=nD,
                      mdpts=mdpts,
@@ -286,6 +292,12 @@ cat("
     beta0 ~ dnorm(0,0.01)      # intercept for lambda
     beta1 ~ dnorm(0,0.01)       # slope for lambda covariate
     
+for(p in 1:npoints) {
+  eps.lam[p] ~ dnorm(0, tau.lam)
+}
+sigma.lam ~ dunif(0, 2)
+tau.lam <- 1 / (sigma.lam * sigma.lam)
+
     for(s in 1:nsites){
     # Add covariates to scale parameter DISTANCE (perceptibility)
     log(sigma[s]) <- alpha0 + alpha1*habitat[s] 
@@ -329,7 +341,7 @@ cat("
     N[s] ~ dbin(phi[s],M[s])      # Number of available individuals
     M[s] ~ dpois(lambda[s])       # Abundance per survey/site/point
     # Add site-level covariates to lambda
-    log(lambda[s]) <- beta0 + beta1*habitat[s] 
+    log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*habitat[s] 
     }
     # Derived quantities
     # Mtot <- sum(M[])  # Total population size
