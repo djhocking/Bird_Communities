@@ -345,7 +345,14 @@ N_est <- sim_fit$summary %>%
 
 N_est <- N_est[ , c("parameter", "50%", "2.5%", "97.5%")]
 
-cbind(N_est, N_min)
+df_year <- df_counts %>%
+  select(Point, ID, Year, Visit, Survey) %>%
+  distinct()
+df_year
+
+df_survey <- dplyr::left_join(data.frame(Survey = unique(surveyid), SurveyID = unique(as.numeric(as.factor((surveyid)))), stringsAsFactors = FALSE), df_year)
+data_frame(df_survey)
+cbind(df_survey, N_est, N_min)
 
 # when not testing - change these to save rather than print
 if(testing) {

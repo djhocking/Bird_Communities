@@ -7,32 +7,40 @@
         beta.a2 ~ dnorm(0,0.01)
         beta.a3 ~ dnorm(0,0.01)
         beta.a4 ~ dnorm(0,0.01)
-       ln.beta0 ~ dnorm(0,0.001)
+       ln.beta0 ~ dnorm(0,0.01)
  # beta0 ~ dunif(log(1), log(10000))
-beta0 <- exp(ln.beta0)
+# beta0 <- exp(ln.beta0)
         beta1 ~ dnorm(0,0.01)
         beta2 ~ dnorm(0,0.01)
         beta3 ~ dnorm(0,0.01)
         beta4 ~ dnorm(0,0.01)
         beta.p1 ~ dnorm(0,0.01)
- sigma.0~dunif(0, 200)
+ sigma.0~dunif(0.01, 200)
 
 # random effect of location (Point)
-for(l in 1:n_points) {
-  eps.n[l] ~ dnorm(0, tau.eps.n)
+# for(l in 1:n_points) {
+#   eps.n[l] ~ dnorm(0, tau.eps.n)
+# }
+# tau.eps.n <- 1 / (sigma.eps.n * sigma.eps.n)
+# sigma.eps.n ~ dunif(0, 10)
+
+    for(l in 1:n_points) {
+    beta0[l] ~ dnorm(mu.point, tau.point) 
+beta.point[l]<-beta0[l]-mu.point
 }
-tau.eps.n <- 1 / (sigma.eps.n * sigma.eps.n)
-sigma.eps.n ~ dunif(0, 10)
+mu.point~ dnorm(0,0.01)
+tau.point<-pow(sd.point,-2)
+sd.point~dunif(0,5)
       
       # DETECTION PROBABILITY FUNCTIONS  
       for(k in 1:nsurveys){ 
 
       # add covariates to scale parameter  DISTANCE (perceptibility)
-       log(sigma[k]) <- log(sigma.0) + beta.p1*VegHgt[point[k]] # + beta.p1*tree[k] 
+       log(sigma[k]) <- log(sigma.0) # + beta.p1*VegHgt[point[k]] # + beta.p1*tree[k] 
       # sigma[k] ~ dunif(0, 100)
 
       # add covariates for availability here TIME-REMOVAL (availability)
-        p.a.mu[k] <- beta.a0 + beta.a1*day[k] + beta.a3*time[k] # day of year, time of day, weather, wind (hard because categorical) beta.a2*day[k]*day[k] + + beta.a4*time[k]*time[k] 
+        p.a.mu[k] <- beta.a0 # + beta.a1*day[k] + beta.a3*time[k] # day of year, time of day, weather, wind (hard because categorical) beta.a2*day[k]*day[k] + + beta.a4*time[k]*time[k] 
 
       p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) 
       # manual logit above to avoid BUGS issues with logit function
@@ -82,7 +90,7 @@ pi.pa[3, k] <- (1 - pow((1 - p.a[k]), 5)) * pow((1 - p.a[k]), 5)
       N[k] ~ dpois(lambda[k]) # predicted abundance per survey/site/point
       
       # Add site-level covariates to lambda
-      log(lambda[k]) <- exp(ln.beta0) + beta1*Year[k] + beta3*Shrub_stm_total[pyear[k]] + beta4*Tree_stm_total[pyear[k]] + eps.n[point[k]] #  + beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k]
+      log(lambda[k]) <- beta0[point[k]] # ln.beta0 + eps.n[point[k]] # + beta1*Year[k] # + beta3*Shrub_stm_total[pyear[k]] + beta4*Tree_stm_total[pyear[k]] #  #  + beta1*VegHgt[k] + beta2*VegHgt[k]*VegHgt[k]
        # lambda[k] ~ dunif(0, 10000) 
       }
 
