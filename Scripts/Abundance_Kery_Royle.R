@@ -59,6 +59,28 @@ variability <- df_counts[6:ncol(df_counts)] %>%
   dplyr::summarise_each(funs(sd)) %>%
   t(.)
 
+# plot counts over time and distance to see effects
+library(ggplot2)
+df_time <- df_counts %>%
+  dplyr::group_by(Time_bin, Visit, Year) %>%
+  select(Year, Visit, Time_bin, AMGO) %>%
+  dplyr::mutate(count_min = ifelse(Time_bin == 1, AMGO/3, ifelse(Time_bin == 2, AMGO/2, AMGO/5))) %>%
+  summarise(count_min = sum(count_min))
+
+ggplot(data = df_time, aes(Time_bin, count_min)) + geom_line() + geom_point() + facet_wrap(~Year + Visit)
+
+area1 <- pi * 50 ^ 2
+area2 <- (pi * 100 ^ 2) - area1
+area3 <- (pi * 150 ^ 2) - area1 - area2
+
+df_dist <- df_counts %>%
+  dplyr::group_by(Dist_bin, Visit, Year) %>%
+  select(Year, Visit, Dist_bin, AMGO) %>%
+  dplyr::mutate(count_min = ifelse(Dist_bin == 1, AMGO/area1, ifelse(Dist_bin == 2, AMGO/area2, AMGO/area3))) %>%
+  summarise(count_min = sum(count_min))
+
+ggplot(data = df_dist, aes(Dist_bin, count_min)) + geom_line() + geom_point() + facet_wrap(~Year + Visit)
+
 # Get detection covariates
 df_detect <- read.csv("Data/covs_detect.csv", stringsAsFactors = FALSE, header = TRUE)
 
