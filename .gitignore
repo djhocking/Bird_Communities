@@ -5,3 +5,9 @@
 Data/2015*
 Data/R_*
 .DS_Store
+AHMbook*
+Scripts/Jags/*
+Farnsworth*
+*DS_Store*
+data_prep.RData
+Data/Example*
