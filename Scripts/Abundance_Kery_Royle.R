@@ -258,8 +258,9 @@ n_breaks <- 3
 
 # Create the distance class data
 maxd <- 150
+maxd <- maxd / 100
 nD <- 3             # Number of distance classes 
-delta <- 50        # bin size or width
+delta <- maxd / nD        # bin size or width
 mdpts <- seq(delta / 2, maxd , delta) # midpoint distance of bins up to max distance
 dclass <- df_ind$Dist_bin # distance class for each observation
 tint <- df_ind$Time_bin
@@ -281,13 +282,12 @@ str(jags.data <- list(n=n,
                       day = as.numeric(df_detect$day_std),
                       habitat=as.numeric(df_abund_std$VegHgt_Avg)))
 
-
 cat("
   model {
     # Prior distributions for basic parameters
     # Intercepts
     beta.a0 ~ dnorm(0,0.01)    # intercept for availability
-    alpha0 ~ dnorm(0, 0.01)    # intercept for sigma
+    alpha0 ~ dnorm(0, 0.01) # T(-100, 3.7)    # intercept for sigma - sigma[s] must be < 15
     alpha1 ~ dnorm(0,0.01)     # slope on sigma covariate
     
     # Coefficients
@@ -322,7 +322,8 @@ cat("
     
     for(s in 1:nsites){
       # Add covariates to scale parameter DISTANCE (perceptibility)
-      log(sigma[s]) <- alpha0 + eps.dist[point[s]] + alpha1*habitat[s] 
+      log(sigma[s]) <- alpha0 + eps.dist[point[s]] + alpha1*habitat[s]
+# sigma[s] ~ dunif(0, 14.9) # must be constrained to <15
       
       # Add covariates for availability here TIME-REMOVAL (availability)
       # p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
@@ -387,12 +388,12 @@ inits <- function(){
        N=Nst
   )
 }
-params <- c("beta.a0", "beta.a1", "alpha0", "alpha1", "beta0", "beta1") # "PDETmean", "PHImean", "Mtot", "Ntot"
+params <- c("beta.a0", "beta.a1", "beta.a2", "alpha0", "alpha1", "beta0", "beta1", "beta2", "sigma.lam", "sigma.dist", "sigma.time", "N") # "PDETmean", "PHImean", "Mtot", "Ntot"
 
 # MCMC settings
-ni <- 50000  
+ni <- 100000  
 nb <- 10000 
-nt <- 4 
+nt <- 18
 nc <- 3
 
 if(testing) {
@@ -403,12 +404,41 @@ if(testing) {
 }
 
 # Run JAGS in parallel (ART 7.3 min), check convergence and summarize posteriors
-out2a <- jags(data=jags.data, inits=inits, parameters=params, 
+sim_fit <- jags(data=jags.data, inits=inits, parameters=params, 
               model.file ="Scripts/Jags/tr-ds.txt",n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, 
               parallel = TRUE)
-traceplot(out2a)
-print(out2a, 3)
 
-sum(temp$M) 
 
-print(out2b,3)
+jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "alpha0", "alpha1", "beta0", "beta1", "beta2", "sigma.lam", "sigma.dist", "sigma.time", "N[1]"))
+
+# traceplot(out2a)
+print(sim_fit, 3)
+
+# sum(temp$M) 
+
+print(sim_fit,3)
+
+# minimum number of birds (total observed)
+N_min <- df_counts %>%
+  # dplyr::filter(Visit == 1) %>%
+  dplyr::group_by(id, Point, ID, Year, Visit, Pyear, Survey) %>%
+  dplyr::summarise_each(., funs(sum)) %>%
+  dplyr::select(Point, AMGO) %>%
+  .[["AMGO"]]
+
+# sim_fit$summary[ , "50%"]
+N_est <- sim_fit$summary %>%
+  as.data.frame(.) %>%
+  dplyr::mutate(parameter = rownames(sim_fit$summary)) %>%
+  dplyr::filter(., grepl("N[", parameter, fixed = TRUE))
+
+N_est <- N_est[ , c("parameter", "50%", "2.5%", "97.5%")]
+
+df_year <- df_counts %>%
+  select(Point, ID, Year, Visit, Survey) %>%
+  distinct()
+df_year
+
+df_survey <- dplyr::left_join(df_survey, df_year)
+data_frame(df_survey)
+cbind(df_survey, N_est, N_min)
