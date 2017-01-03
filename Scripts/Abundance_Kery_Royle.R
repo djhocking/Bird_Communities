@@ -207,6 +207,7 @@ df_bins <- df_counts %>%
 
 ## Now create observation level dataset that can be sampled
 # NEED TO RESTRICT COUNT TO INDIVIDUALS IN POP THEN LATER ADD ZEROS
+converge <- data.frame(species = NA, converge = NA)
 
 # loop
 i <- 2 #sp on col 8-81
@@ -226,8 +227,8 @@ df_z <- df_z_spp %>%
   dplyr::rename_(count = sp)
 
 df_ind <- data.frame()
-for(i in 1:length(df_obs$count)){ # basically make 1s for every individual at a site, then link to site id
-  tmp=df_obs[i,]
+for(j in 1:length(df_obs$count)){ # basically make 1s for every individual at a site, then link to site id
+  tmp=df_obs[j,]
   ind=rep(1,tmp$count)
   SurveyID=rep(tmp$SurveyID, tmp$count)
   Time_bin = rep(tmp$Time_bin, tmp$count)
@@ -265,7 +266,7 @@ mdpts <- seq(delta / 2, maxd , delta) # midpoint distance of bins up to max dist
 dclass <- df_ind$Dist_bin # distance class for each observation
 tint <- df_ind$Time_bin
 
-# Bundle data and summarize
+# Bundle data and summarize Use VegHgt_Avg, Shrub_stm_total, Tree_stm_total
 str(jags.data <- list(n=n, 
                       site=survey, 
                       dclass=as.numeric(dclass),
@@ -273,29 +274,40 @@ str(jags.data <- list(n=n,
                       nobs=nobs, 
                       npoints = npoints,
                       point = point,
-                      delta=delta, 
+                      delta=delta,
+                      maxd = maxd,
                       nD=nD,
                       mdpts=mdpts,
                       B=3, 
                       K=K, 
                       tint=tint, 
+                      year = df_abund_std$Year - min(df_abund_std$Year),
+                      time = as.numeric(df_detect$time_std),
                       day = as.numeric(df_detect$day_std),
-                      habitat=as.numeric(df_abund_std$VegHgt_Avg)))
+                      veg=as.numeric(df_abund_std$VegHgt_Avg),
+                      shrub=as.numeric(df_abund_std$Shrub_stm_total),
+                      tree=as.numeric(df_abund_std$Tree_stm_total)))
 
 cat("
   model {
     # Prior distributions for basic parameters
     # Intercepts
     beta.a0 ~ dnorm(0,0.01)    # intercept for availability
-    alpha0 ~ dnorm(0, 0.01) # T(-100, 3.7)    # intercept for sigma - sigma[s] must be < 15
-    alpha1 ~ dnorm(0,0.01)     # slope on sigma covariate
+    alpha0 ~ dnorm(0, 0.0001)    # intercept for sigma
+    beta0 ~ dnorm(0,0.01)       # intercept for lambda
+    
     
     # Coefficients
-    beta.a1 ~ dnorm(0,0.01)  # slope for availability covariate
-    beta.a2 ~ dnorm(0, 0.01)
-    beta0 ~ dnorm(0,0.01)      # intercept for lambda
-    beta1 ~ dnorm(0,0.01)       # slope for lambda covariate
-    beta2 ~ dnorm(0, 0.01)
+    beta.a1 ~ dnorm(0,0.01)     # slope for availability day of the year
+    beta.a2 ~ dnorm(0,0.01)     # slope for availability time of day
+    beta.a3 ~ dnorm(0,0.01)     # slope for availability time of day^2
+  #  beta.a4 ~ dnorm(0, 0.01)    # effect of year 2 on availability
+    beta1 ~ dnorm(0,0.01)       # slope for lambda covariate: veg
+    beta2 ~ dnorm(0,0.01)       # slope for lambda covariate: shrub
+    beta3 ~ dnorm(0,0.01)       # slope for lambda covariate: tree
+    beta4 ~ dnorm(0, 0.01)      # effect of year 2 on abundance
+    alpha1 ~ dnorm(0,0.001)     # slope on sigma covariate: veg effect on dist det
+   # alpha2 ~ dnorm(0, 0.001)    # effect of year 2 on detection (distance) - maybe not necessary
     
     # random point abundance  
     for(p in 1:npoints) {
@@ -318,17 +330,16 @@ cat("
     sigma.time ~ dunif(0, 2)
     tau.time <- 1 / (sigma.time * sigma.time)
     
-    # random overdispersed detection
-    
     for(s in 1:nsites){
       # Add covariates to scale parameter DISTANCE (perceptibility)
-      log(sigma[s]) <- alpha0 + eps.dist[point[s]] + alpha1*habitat[s]
-# sigma[s] ~ dunif(0, 14.9) # must be constrained to <15
+     # log(sigma[s]) <- alpha0 # + alpha1*veg[s] # + alpha2*year[s] + eps.dist[point[s]]
+sigma[s] ~ dunif(0, 14.9) # must be constrained to <15 if distance not standardized
       
       # Add covariates for availability here TIME-REMOVAL (availability)
       # p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
       # Optional covariates on availability
-      p.a[s] <- exp(beta.a0 + eps.time[point[s]] + beta.a1*day[s])/(1+exp(beta.a0 + eps.time[point[s]] + beta.a1*day[s]))
+mu.avail[s] <- beta.a0 + beta.a1*day[s] + beta.a2*time[s] + beta.a3*time[s]*time[s] # + beta.a4*year[s] + eps.time[point[s]]
+      p.a[s] <- exp(mu.avail[s])/(1+exp(mu.avail[s]))
       
       # Distance sampling detection probability model
       for(b in 1:nD){
@@ -346,9 +357,9 @@ cat("
       
       for (k in 1:K){
         # pi.pa[k,s] <- p.a[s] * pow(1-p.a[s], (k-1)) # assumes equal length time bins  
-        pi.pa.c[k,s] <- pi.pa[k,s]/phi[s] # Conditional probabilities of availability
+        pi.pa.c[k,s] <- pi.pa[k,s]/pavail[s] # Conditional probabilities of availability
       }
-      phi[s] <- sum(pi.pa[,s]) # Probability of ever available
+      pavail[s] <- sum(pi.pa[,s]) # Probability of ever available
     }
     # Conditional observation model for categorical covariates
     for(i in 1:nobs){  
@@ -359,18 +370,48 @@ cat("
     for(s in 1:nsites){ 
       # Binomial model for # of captured individuals
       # n[s] ~ dbin(pmarg[s], M[s]) # Formulation b, see text
-      # pmarg[s] <- pdet[s]*phi[s]
+      # pmarg[s] <- pdet[s]*pavail[s]
       n[s] ~ dbin(pdet[s], N[s])    # Formulation a, see text
-      N[s] ~ dbin(phi[s],M[s])      # Number of available individuals
+      N[s] ~ dbin(pavail[s],M[s])      # Number of available individuals
       M[s] ~ dpois(lambda[s])       # Abundance per survey/site/point
       # Add site-level covariates to lambda
-      log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*habitat[s] 
+      log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*veg[s] + beta2*shrub[s] + beta3*tree[s] + beta4*year[s]
     }
+
+######## Goodness of fit tests
+    for(k in 1:nsites){
+      navail.fit[k] ~ dbin(pavail[k], N[k]) # create new realization of model
+      y.fit[k] ~ dbin(pdet[k], N[k]) # create new realization of model
+
+      e.pd[k]<- pdet[k]*N[k] # original model prediction
+      E.pd[k]<- pow(( n[k]- e.pd[k]),2)/(e.pd[k]+0.5)
+      E.New.pd[k]<- pow((y.fit[k]-e.pd[k]),2)/(e.pd[k]+0.5)
+
+      e.pa[k]<- pavail[k]*N[k] # original model prediction
+      E.pa[k]<- pow(( N[k]- e.pa[k]),2)/(e.pa[k]+0.5)
+      E.New.pa[k]<- pow((navail.fit[k]-e.pa[k]),2)/(e.pa[k]+0.5)
+    }
+    fit.pd<- sum(E.pd[])
+    fit.new.pd<- sum(E.New.pd[])
+
+    fit.pa<- sum(E.pa[])
+    fit.new.pa<- sum(E.New.pa[])
+
+    ######## Summary stats
+    # meanpavail<-mean(pavail[]) # mean probability of availability
+    # meanpdet<-mean(pdet[]) # mean probability of perceptibility
+    bayesp.pd<-step(fit.new.pd-fit.pd) # Bayesian p-value for perceptibility model
+    bayesp.pa<-step(fit.new.pa-fit.pa) # Bayesian p-value for availability model
+    meanN<-mean(M[]) # mean site-level abundance
+    # totN<-sum(N[])  # population size of total area surveyed
+    meansig<-mean(sigma[]) # mean scale parameter across sites
+    dens<-meanN/(maxd*maxd*3.14159/10000) # density of birds per ha
+
     # Derived quantities
-    # Mtot <- sum(M[])  # Total population size
-    # Ntot <- sum(N[])  # Total available population size
-    # PDETmean <- mean(pdet[]) # Mean perceptibility across sites
-    # PHImean <- mean(phi[]) # Mean availability across sites
+    Mtot <- sum(M[])  # Total population size
+    Ntot <- sum(N[])  # Total available population size
+    PDETmean <- mean(pdet[]) # Mean perceptibility across sites
+    PAVAILmean <- mean(pavail[]) # Mean availability across sites
   }
     ", fill=TRUE, file="Scripts/Jags/tr-ds.txt")
 
@@ -388,7 +429,7 @@ inits <- function(){
        N=Nst
   )
 }
-params <- c("beta.a0", "beta.a1", "beta.a2", "alpha0", "alpha1", "beta0", "beta1", "beta2", "sigma.lam", "sigma.dist", "sigma.time", "N") # "PDETmean", "PHImean", "Mtot", "Ntot"
+params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "alpha1", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") # "beta.a4", "alpha2"
 
 # MCMC settings
 ni <- 100000  
@@ -397,40 +438,68 @@ nt <- 18
 nc <- 3
 
 if(testing) {
-  ni = 50
-  nb = 10
+  ni = 1000
+  nb = 500
   nt = 1
   nc = 3
 }
 
 # Run JAGS in parallel (ART 7.3 min), check convergence and summarize posteriors
+start_t <- proc.time()
 sim_fit <- jags(data=jags.data, inits=inits, parameters=params, 
               model.file ="Scripts/Jags/tr-ds.txt",n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, 
               parallel = TRUE)
+proc.time() - start_t # 30 min
 
+saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
 
-jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "alpha0", "alpha1", "beta0", "beta1", "beta2", "sigma.lam", "sigma.dist", "sigma.time", "N[1]"))
+if(testing) {
+jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "alpha1", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "M[1]", "N[1]", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "PDETmean", "PAVAILmean")) # "beta.a4", "alpha2", 
+} else {
+  library(ggmcmc)
+  ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_", sp, ".pdf"), plot=c("traceplot"))
+}
 
-# traceplot(out2a)
+# ci.median <- ci(ggs(sim_fit$samples, family="^N")) %>%
+#   select(Parameter, median)
+# 
+# L.radon <- data.frame(
+#   Parameter=c(
+#     paste("N[", df_surveyid$SurveyID, "]", sep="")),
+#   Label=rep(df_surveyid$Point, 1),
+#   Year=rep(as.character(df_surveyid$Year, 1)),
+#   Visit=rep(as.character(df_surveyid$Visit, 1)),
+#   Coefficient=gl(1, length(df_surveyid$SurveyID), 
+#                  labels=c("Abundance")))
+# 
+# ggs_caterpillar(ggs(sim_fit$samples, par_labels=L.radon, family="^N")) +
+#   facet_wrap(~ Year + Visit, scales="free") #+ aes(color=Uranium)
+
 print(sim_fit, 3)
 
-# sum(temp$M) 
-
-print(sim_fit,3)
+# Record convergence
+converge[i, "converge"] <- max(unlist(sim_fit$Rhat)) <= 1.1
+converge[i, "species"] <- sp
 
 # minimum number of birds (total observed)
 N_min <- df_counts %>%
   # dplyr::filter(Visit == 1) %>%
   dplyr::group_by(id, Point, ID, Year, Visit, Pyear, Survey) %>%
   dplyr::summarise_each(., funs(sum)) %>%
-  dplyr::select(Point, AMGO) %>%
-  .[["AMGO"]]
+  dplyr::select_("Point", sp) %>%
+  .[[sp]]
 
 # sim_fit$summary[ , "50%"]
+bayesp <- sim_fit$summary %>%
+  as.data.frame(.) %>%
+  dplyr::mutate(parameter = rownames(sim_fit$summary)) %>%
+  dplyr::filter(., grepl("bayes", parameter, fixed = TRUE))
+bayesp
+
 N_est <- sim_fit$summary %>%
   as.data.frame(.) %>%
   dplyr::mutate(parameter = rownames(sim_fit$summary)) %>%
-  dplyr::filter(., grepl("N[", parameter, fixed = TRUE))
+  dplyr::filter(., grepl("M[", parameter, fixed = TRUE))
 
 N_est <- N_est[ , c("parameter", "50%", "2.5%", "97.5%")]
 
@@ -439,6 +508,9 @@ df_year <- df_counts %>%
   distinct()
 df_year
 
-df_survey <- dplyr::left_join(df_survey, df_year)
-data_frame(df_survey)
-cbind(df_survey, N_est, N_min)
+df_survey <- dplyr::left_join(df_surveyid, df_year)
+df_survey <- data.frame(df_survey, stringsAsFactors = FALSE)
+N_est <- cbind(df_survey, N_est, N_min) %>%
+  dplyr::select(-Pyear, -Survey, -parameter) %>%
+  dplyr::mutate(Species = sp)
+N_est

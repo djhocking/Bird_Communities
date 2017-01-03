@@ -1,71 +1,69 @@
-sink("jags_min.txt")
+sink("Scripts/Jags/jags_min.txt")
 cat("
   model {
+    # Prior distributions for basic parameters
+    # Intercepts
+    beta.a0 ~ dnorm(0,0.01)    # intercept for availability
+    alpha0 ~ dnorm(0, 0.01)    # intercept for sigma
+    # alpha1 ~ dnorm(0,0.01)     # slope on sigma covariate
     
-    # PRIORS for fixed detection parameters
-    beta.a0 ~ dnorm(0,0.01)
-    sigma.0 ~ dunif(0.01, 200)
-    beta0 ~ dnorm(0, 0.01)
+    # Coefficients
+    # beta.a1 ~ dnorm(0,0.01)  # slope for availability covariate
+    # beta.a2 ~ dnorm(0, 0.01)
+    beta0 ~ dnorm(0,0.01)      # intercept for lambda
+    # beta1 ~ dnorm(0,0.01)       # slope for lambda covariate
+    # beta2 ~ dnorm(0, 0.01)
     
-    # DETECTION PROBABILITY FUNCTIONS  
-    for(k in 1:nsurveys){ 
+    for(s in 1:nsites){
+      # Add covariates to scale parameter DISTANCE (perceptibility)
+      log(sigma[s]) <- alpha0
       
-      # add covariates to scale parameter  DISTANCE (perceptibility)
-      log(sigma[k]) <- log(sigma.0)
+      # Add covariates for availability here TIME-REMOVAL (availability)
+      p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
+      # Optional covariates on availability
+      # p.a[s] <- exp(beta.a0 + eps.time[point[s]] + beta.a1*day[s])/(1+exp(beta.a0 + eps.time[point[s]] + beta.a1*day[s]))
       
-      # add covariates for availability here TIME-REMOVAL (availability)
-      p.a.mu[k] <- beta.a0
-      
-      p.a[k] <- exp(p.a.mu[k]) / (1 + exp(p.a.mu[k])) # manual logit above to avoid BUGS issues with logit function
-      
-      ######## Distance sampling detection probability estimation
-      # Using summation technique - Pr(p of x)=exp(-x^2/2*sigma^2)*f(x)
-      for(b in 1:nbreaks) {
-        log(g[b,k]) <- -mdpts[b] * mdpts[b] / (2 * sigma[k] * sigma[k])  # half-normal detection function - first half of eq., 
-        f[b,k] <- (2 * mdpts[b] * delta ) / (maxd * maxd) # this is f(x), the scaled radial density function
-        ##ADD [b] TO DELTA IF INTERVALS ARE NOT ALL THE SAME AMONG BREAKS
-        
-        pi.pd[b,k] <- g[b,k] * f[b,k]  # this is the product Pr(detect)*Pr(distribution)
-        pi.pd.c[b,k] <- pi.pd[b,k] / pdet[k]  # standardizing based on overall capture probability - conditional formulation
+      # Distance sampling detection probability model
+      for(b in 1:nD){
+        log(g[b,s]) <- -mdpts[b]*mdpts[b]/(2*sigma[s]*sigma[s])  # Half-normal  
+        f[b,s] <- ( 2*mdpts[b]*delta )/(B*B) # Radial density function
+        pi.pd[b,s] <- g[b,s]*f[b,s]  #  Product Pr(detect)*Pr(distribution)
+        pi.pd.c[b,s] <- pi.pd[b,s]/pdet[s]  # Conditional probabilities
       }
+      pdet[s] <- sum(pi.pd[,s])  # Probability of detection at all 
       
-      pdet[k] <- sum(pi.pd[,k])  # probability of detection is the sum of all rectangular areas
+      # Time-removal probabilities
+      pi.pa[1, s] <- 1 - pow((1 - p.a[s]), 3)
+      pi.pa[2, s] <- (1 - pow((1 - p.a[s]), 2)) * pow((1 - p.a[s]), 3)
+      pi.pa[3, s] <- (1 - pow((1 - p.a[s]), 5)) * pow((1 - p.a[s]), 5)
       
-      ######## Time-removal detection probability estimation
-      
-      # Removal detection prob for each of 3 time periods - currently hard coded for 3,2, 5 min intervals
-      pi.pa[1, k] <- 1 - pow((1 - p.a[k]), 3)
-      pi.pa[2, k] <- (1 - pow((1 - p.a[k]), 2)) * pow((1 - p.a[k]), 3)
-      pi.pa[3, k] <- (1 - pow((1 - p.a[k]), 5)) * pow((1 - p.a[k]), 5)
-      
-      for (j in 1:J) {
-        pi.pa.c[j,k] <- pi.pa[j,k] / pavail[k] # standardizing based on overall availability - conditional formulation
+      for (k in 1:K){
+        # pi.pa[k,s] <- p.a[s] * pow(1-p.a[s], (k-1)) # assumes equal length time bins  
+        pi.pa.c[k,s] <- pi.pa[k,s]/phi[s] # Conditional probabilities of availability
       }
-      pavail[k] <- sum(pi.pa[,k]) # probability of capture is the sum of all time intervals
-      # 
-    } # End detection loop
-    
-    ######## Observation-level model  
-    for(i in 1:nobs) {  
-      # single binomial trial with categorical distribution linking distance class and time interval to survey point
-      dclass[i] ~ dcat(pi.pd.c[ , surveyid[i]]) 
-      tinterval[i] ~ dcat(pi.pa.c[ , surveyid[i]])
+      phi[s] <- sum(pi.pa[,s]) # Probability of ever available
     }
-    
-    ######## Abundance estimation    
-    for(k in 1:nsurveys) { 
-      # binomial model for # of captured individuals
-      y[k] ~ dbin(pdet[k], navail[k]) # counts related to probability of detection, given availability
-      navail[k] ~ dbin(pavail[k], N[k]) # probability of being available, given total population size available for sampling
-      
-      ## abundance model
-      N[k] ~ dpois(lambda[k]) # predicted abundance per survey/site/point
-      
+    # Conditional observation model for categorical covariates
+    for(i in 1:nobs){  
+      dclass[i] ~ dcat(pi.pd.c[,site[i]]) 
+      tint[i] ~ dcat(pi.pa.c[,site[i]])
+    }
+    # Abundance model
+    for(s in 1:nsites){ 
+      # Binomial model for # of captured individuals
+      # n[s] ~ dbin(pmarg[s], M[s]) # Formulation b, see text
+      # pmarg[s] <- pdet[s]*phi[s]
+      n[s] ~ dbin(pdet[s], N[s])    # Formulation a, see text
+      N[s] ~ dbin(phi[s], M[s])      # Number of available individuals
+      M[s] ~ dpois(lambda[s])       # Abundance per survey/site/point
       # Add site-level covariates to lambda
-      log(lambda[k]) <- beta0
+      log(lambda[s]) <- beta0 #+ eps.lam[point[s]] + beta1*habitat[s] 
     }
-    
+    # Derived quantities
+    # Mtot <- sum(M[])  # Total population size
+    # Ntot <- sum(N[])  # Total available population size
+    # PDETmean <- mean(pdet[]) # Mean perceptibility across sites
+    # PHImean <- mean(phi[]) # Mean availability across sites
   }
-  
   ", fill=TRUE)
 sink()
