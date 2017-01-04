@@ -3,7 +3,7 @@
 # library(AHMbook)
 
 # set testing
-testing <- TRUE
+testing <- FALSE
 
 # Load Packages
 library(dplyr)
@@ -12,6 +12,7 @@ library(tidyr)
 library(readr)
 library(rjags)
 library(jagsUI)
+set.factory("bugs::Congugate", FALSE, type = "sampler")
 
 # Load Data
 df_2015 <- read_csv("Data/point_counts_2015.csv")
@@ -224,7 +225,10 @@ df_obs <- df_counts %>%
 
 df_z <- df_z_spp %>%
   dplyr::select(one_of(vars)) %>%
-  dplyr::rename_(count = sp)
+  dplyr::rename_(count = sp) %>%
+  dplyr::mutate(visit2 = ifelse(Visit == 2 & Year == 2015, 1, 0),
+                visit3 = ifelse(Visit == 1 & Year == 2016, 1, 0),
+                visit4 = ifelse(Visit == 2 & Year == 2016, 1, 0))
 
 df_ind <- data.frame()
 for(j in 1:length(df_obs$count)){ # basically make 1s for every individual at a site, then link to site id
@@ -284,6 +288,10 @@ str(jags.data <- list(n=n,
                       year = df_abund_std$Year - min(df_abund_std$Year),
                       time = as.numeric(df_detect$time_std),
                       day = as.numeric(df_detect$day_std),
+                      visit2 = as.numeric(df_z$visit2),
+                      visit3 = as.numeric(df_z$visit3),
+                      visit4 = as.numeric(df_z$visit4),
+                      siteVisit = as.numeric(df_z$SurveyID),
                       veg=as.numeric(df_abund_std$VegHgt_Avg),
                       shrub=as.numeric(df_abund_std$Shrub_stm_total),
                       tree=as.numeric(df_abund_std$Tree_stm_total)))
@@ -293,9 +301,8 @@ cat("
     # Prior distributions for basic parameters
     # Intercepts
     beta.a0 ~ dnorm(0,0.01)    # intercept for availability
-    alpha0 ~ dnorm(0, 0.0001)    # intercept for sigma
+    alpha0 ~ dunif(0, 20) # dnorm(0, 0.0001)    # intercept for sigma
     beta0 ~ dnorm(0,0.01)       # intercept for lambda
-    
     
     # Coefficients
     beta.a1 ~ dnorm(0,0.01)     # slope for availability day of the year
@@ -306,7 +313,10 @@ cat("
     beta2 ~ dnorm(0,0.01)       # slope for lambda covariate: shrub
     beta3 ~ dnorm(0,0.01)       # slope for lambda covariate: tree
     beta4 ~ dnorm(0, 0.01)      # effect of year 2 on abundance
-    alpha1 ~ dnorm(0,0.001)     # slope on sigma covariate: veg effect on dist det
+#     alpha1 ~ dunif(-5, 5)     # slope on sigma covariate: tree
+# alpha2 ~ dunif(-5, 5)     # slope on sigma covariate: visit 2
+# alpha3 ~ dunif(-5, 5)     # slope on sigma covariate: visit 3
+# alpha4 ~ dunif(-5, 5)     # slope on sigma covariate: visit 4
    # alpha2 ~ dnorm(0, 0.001)    # effect of year 2 on detection (distance) - maybe not necessary
     
     # random point abundance  
@@ -316,11 +326,11 @@ cat("
     sigma.lam ~ dunif(0, 2)
     tau.lam <- 1 / (sigma.lam * sigma.lam)
     
-    # random point detection
-    for(p in 1:npoints) {
-      eps.dist[p] ~ dnorm(0, tau.dist)
+    # random overdispersed detection
+    for(s in 1:nsites) {
+      eps.dist[s] ~ dnorm(0, tau.dist)
     }
-    sigma.dist ~ dunif(0, 2)
+    sigma.dist ~ dunif(0, 10)
     tau.dist <- 1 / (sigma.dist * sigma.dist)
     
     # random point availability
@@ -332,8 +342,8 @@ cat("
     
     for(s in 1:nsites){
       # Add covariates to scale parameter DISTANCE (perceptibility)
-     # log(sigma[s]) <- alpha0 # + alpha1*veg[s] # + alpha2*year[s] + eps.dist[point[s]]
-sigma[s] ~ dunif(0, 14.9) # must be constrained to <15 if distance not standardized
+     log(sigma[s]) <- alpha0 + eps.dist[siteVisit[s]] # + alpha1*tree[s] # + alpha2*visit2[s] + alpha3*visit3[s] + alpha4*visit4[s] # + eps.dist[point[s]]
+# sigma[s] ~ dunif(0, 14.9) # must be constrained to <15 if distance not standardized
       
       # Add covariates for availability here TIME-REMOVAL (availability)
       # p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
@@ -349,7 +359,7 @@ mu.avail[s] <- beta.a0 + beta.a1*day[s] + beta.a2*time[s] + beta.a3*time[s]*time
         pi.pd.c[b,s] <- pi.pd[b,s]/pdet[s]  # Conditional probabilities
       }
       pdet[s] <- sum(pi.pd[,s])  # Probability of detection at all 
-      
+
       # Time-removal probabilities
       pi.pa[1, s] <- 1 - pow((1 - p.a[s]), 3)
       pi.pa[2, s] <- (1 - pow((1 - p.a[s]), 2)) * pow((1 - p.a[s]), 3)
@@ -375,7 +385,7 @@ mu.avail[s] <- beta.a0 + beta.a1*day[s] + beta.a2*time[s] + beta.a3*time[s]*time
       N[s] ~ dbin(pavail[s],M[s])      # Number of available individuals
       M[s] ~ dpois(lambda[s])       # Abundance per survey/site/point
       # Add site-level covariates to lambda
-      log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*veg[s] + beta2*shrub[s] + beta3*tree[s] + beta4*year[s]
+      log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*veg[s] + beta2*shrub[s] + beta3*tree[s] + beta4*year[s] #  
     }
 
 ######## Goodness of fit tests
@@ -420,7 +430,7 @@ Nst <- n + 1
 Mst <- n + 1 
 inits <- function(){
   list(M=Mst, 
-       alpha0=1,
+       alpha0=runif(1, 1, 5),
        beta0=runif(1,-1,1),
        beta.a1=runif(1,-1,1),
        beta1=runif(1,-1,1),
@@ -429,7 +439,7 @@ inits <- function(){
        N=Nst
   )
 }
-params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "alpha1", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") # "beta.a4", "alpha2"
+params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0",  "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") #, "sigma") # "beta.a4", "alpha2", "alpha1", "alpha2", "alpha3", "alpha4",
 
 # MCMC settings
 ni <- 100000  
@@ -451,11 +461,11 @@ sim_fit <- jags(data=jags.data, inits=inits, parameters=params,
               parallel = TRUE)
 proc.time() - start_t # 30 min
 
-saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
-
+dev.off()
 if(testing) {
-jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "alpha1", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "M[1]", "N[1]", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "PDETmean", "PAVAILmean")) # "beta.a4", "alpha2", 
+jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "M[1]", "N[1]", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "PDETmean", "PAVAILmean")) #, "sigma[1]")) # "beta.a4", "alpha2","alpha1", "alpha2", "alpha3", "alpha4", 
 } else {
+  saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
   library(ggmcmc)
   ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_", sp, ".pdf"), plot=c("traceplot"))
 }
@@ -496,6 +506,11 @@ bayesp <- sim_fit$summary %>%
   dplyr::filter(., grepl("bayes", parameter, fixed = TRUE))
 bayesp
 
+sim_fit$summary %>%
+  as.data.frame(.) %>%
+  dplyr::mutate(parameter = rownames(sim_fit$summary)) %>%
+  dplyr::filter(., grepl("sigma", parameter, fixed = TRUE))
+
 N_est <- sim_fit$summary %>%
   as.data.frame(.) %>%
   dplyr::mutate(parameter = rownames(sim_fit$summary)) %>%
@@ -513,4 +528,9 @@ df_survey <- data.frame(df_survey, stringsAsFactors = FALSE)
 N_est <- cbind(df_survey, N_est, N_min) %>%
   dplyr::select(-Pyear, -Survey, -parameter) %>%
   dplyr::mutate(Species = sp)
+names(N_est) <- c("Point", "ID", "Year", "Visit", "SurveyID", "Median", "LCRI", "UCRI", "Nmin", "Species")
 N_est
+
+library(ggplot2)
+ggplot(N_est, aes(N_min, Median)) + geom_point() + theme_bw() + ggtitle(sp)
+ggsave(file = paste0("Output/Obs_Pred_", sp, ".pdf"))
