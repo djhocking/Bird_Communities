@@ -3,7 +3,7 @@
 # library(AHMbook)
 
 # set testing
-testing <- TRUE
+testing <- FALSE
 
 # Load Packages
 library(dplyr)
@@ -446,9 +446,9 @@ inits <- function(){
 params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0",  "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") #, "sigma") # "beta.a4", "alpha2", "alpha1", "alpha2", "alpha3", "alpha4",
 
 # MCMC settings
-ni <- 100  
-nb <- 10 
-nt <- 1
+ni <- 100000  
+nb <- 10000 
+nt <- 18
 nc <- 3
 
 if(testing) {
