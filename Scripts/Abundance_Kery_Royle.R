@@ -3,7 +3,7 @@
 # library(AHMbook)
 
 # set testing
-testing <- FALSE
+testing <- TRUE
 
 # Load Packages
 library(dplyr)
@@ -211,8 +211,12 @@ df_bins <- df_counts %>%
 converge <- data.frame(species = NA, converge = NA)
 
 # loop
-i <- 2 #sp on col 8-81
+
+# i <- 2 #sp on col 8-81
 spp <- names(df_counts[ , 8:81])
+
+for(i in 1:length(unique(spp))) {
+
 sp <- spp[i]
 vars <- c("Point", "ID", "Year", "Visit", "Pyear", "Survey", "SurveyID", sp)
 vars_full <- c("Point", "ID", "Year", "Visit", "Pyear", "Survey", "SurveyID", "Time_bin", "Dist_bin", sp)
@@ -442,9 +446,9 @@ inits <- function(){
 params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0",  "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") #, "sigma") # "beta.a4", "alpha2", "alpha1", "alpha2", "alpha3", "alpha4",
 
 # MCMC settings
-ni <- 100000  
-nb <- 10000 
-nt <- 18
+ni <- 100  
+nb <- 10 
+nt <- 1
 nc <- 3
 
 if(testing) {
@@ -456,19 +460,20 @@ if(testing) {
 
 # Run JAGS in parallel (ART 7.3 min), check convergence and summarize posteriors
 start_t <- proc.time()
-sim_fit <- jags(data=jags.data, inits=inits, parameters=params, 
+sim_fit <- try(jags(data=jags.data, inits=inits, parameters=params, 
               model.file ="Scripts/Jags/tr-ds.txt",n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, 
-              parallel = TRUE)
-proc.time() - start_t # 30 min
+              parallel = TRUE))
+proc.time() - start_t # 9 hours
 
-dev.off()
 if(testing) {
+  dev.off()
 jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "M[1]", "N[1]", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "PDETmean", "PAVAILmean")) #, "sigma[1]")) # "beta.a4", "alpha2","alpha1", "alpha2", "alpha3", "alpha4", 
+  print(sim_fit, 3)
 } else {
+  if(class(sim_fit) != "try-error") {
   saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
   library(ggmcmc)
   ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_", sp, ".pdf"), plot=c("traceplot"))
-}
 
 # ci.median <- ci(ggs(sim_fit$samples, family="^N")) %>%
 #   select(Parameter, median)
@@ -484,8 +489,6 @@ jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta
 # 
 # ggs_caterpillar(ggs(sim_fit$samples, par_labels=L.radon, family="^N")) +
 #   facet_wrap(~ Year + Visit, scales="free") #+ aes(color=Uranium)
-
-print(sim_fit, 3)
 
 # Record convergence
 converge[i, "converge"] <- max(unlist(sim_fit$Rhat)) <= 1.1
@@ -529,8 +532,54 @@ N_est <- cbind(df_survey, N_est, N_min) %>%
   dplyr::select(-Pyear, -Survey, -parameter) %>%
   dplyr::mutate(Species = sp)
 names(N_est) <- c("Point", "ID", "Year", "Visit", "SurveyID", "Median", "LCRI", "UCRI", "Nmin", "Species")
-N_est
+if(i == 1) {
+  N_table <- N_est
+} else {
+  N_table <- bind_rows(N_table, N_est)
+}
+write.csv(N_table, file = paste0("Output/N_table.csv"), row.names = FALSE)
 
 library(ggplot2)
 ggplot(N_est, aes(N_min, Median)) + geom_point() + theme_bw() + ggtitle(sp)
-ggsave(file = paste0("Output/Obs_Pred_", sp, ".pdf"))
+ggsave(file = paste0("Output/Figures/Obs_Pred_", sp, ".pdf"))
+
+if(i == 1) {
+  summary_table <- data.frame(matrix(NA, nrow = 1, ncol = 9))
+  names(summary_table) <- c("Species", "PDETmean", "PAVAILmean", "meansig", "dens", "bayesp.pd", "bayesp.pa", "Rhat_max", "Converged")
+  
+  summary_table[i, "Species"] <- sp
+  summary_table[i, "PDETmean"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("PDETmean", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "PAVAILmean"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("PAVAILmean", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "meansig"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("meansig", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "dens"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("dens", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "bayesp.pd"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("bayesp.pd", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "bayesp.pa"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("bayesp.pa", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "Rhat_max"] <- max(unlist(sim_fit$Rhat), na.rm = TRUE)
+  summary_table[i, "Converged"] <- ifelse(max(unlist(sim_fit$Rhat), na.rm = TRUE) <= 1.1, 1, 0)
+} else {
+  summary_table[i, "Species"] <- sp
+  summary_table[i, "PDETmean"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("PDETmean", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "PAVAILmean"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("PAVAILmean", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "meansig"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("meansig", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "dens"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("dens", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "bayesp.pd"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("bayesp.pd", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "bayesp.pa"] <- as.numeric(as.data.frame(sim_fit$summary) %>% dplyr::mutate(parameter = rownames(sim_fit$summary)) %>% dplyr::filter(., grepl("bayesp.pa", parameter, fixed = TRUE)) %>% dplyr::select(5))
+  summary_table[i, "Rhat_max"] <- max(unlist(sim_fit$Rhat), na.rm = TRUE)
+  summary_table[i, "Converged"] <- ifelse(max(unlist(sim_fit$Rhat), na.rm = TRUE) <= 1.1, 1, 0)
+}
+  } else {
+    summary_table[i, "Species"] <- sp
+    summary_table[i, "PDETmean"] <- NA
+    summary_table[i, "PAVAILmean"] <- NA
+    summary_table[i, "meansig"] <- NA
+    summary_table[i, "dens"] <- NA
+    summary_table[i, "bayesp.pd"] <- NA
+    summary_table[i, "bayesp.pa"] <- NA
+    summary_table[i, "Rhat_max"] <- NA
+    summary_table[i, "Converged"] <- NA
+  } # end try
+  write.csv(summary_table, file = paste0("Output/summary_table.csv"), row.names = FALSE)
+} # end testing else statement
+
+
+} # end species for loop
