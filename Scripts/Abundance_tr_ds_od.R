@@ -342,7 +342,7 @@ jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta
   print(sim_fit, 3)
 } else {
   if(class(sim_fit) != "try-error") {
-  saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
+  saveRDS(sim_fit, file = paste0("Output/MCMC/od_", sp, ".Rds"))
   library(ggmcmc)
   ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_od_", sp, ".pdf"), plot=c("traceplot"))
 
