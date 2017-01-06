@@ -118,7 +118,7 @@ cat("
     meanN<-mean(M[]) # mean site-level abundance
     # totN<-sum(N[])  # population size of total area surveyed
     meansig<-mean(sigma[]) # mean scale parameter across sites
-    dens<-meanN/(maxd*maxd*3.14159/10000) # density of birds per ha
+    dens<-meanN/(maxd*maxd*3.14159) # density of birds per ha
     
     # Derived quantities
     Mtot <- sum(M[])  # Total population size
