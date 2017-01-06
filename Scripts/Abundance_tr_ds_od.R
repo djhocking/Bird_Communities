@@ -317,7 +317,7 @@ inits <- function(){
 params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "alpha1", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") #, "sigma") # "beta.a4", "alpha2", "alpha1", "alpha2", "alpha3", "alpha4",
 
 # MCMC settings
-ni <- 100000
+ni <- 150000
 nb <- 50000  # 10000
 nt <- 10     # 18
 nc <- 3
@@ -332,7 +332,7 @@ if(testing) {
 # Run JAGS in parallel (ART 7.3 min), check convergence and summarize posteriors
 start_t <- proc.time()
 sim_fit <- try(jags(data=jags.data, inits=inits, parameters=params, 
-              model.file ="Scripts/Jags/tr-ds.txt", n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, 
+              model.file ="Scripts/Jags/tr-ds-od.txt", n.thin=nt, n.chains=nc, n.burnin=nb, n.iter=ni, 
               parallel = TRUE))
 proc.time() - start_t # 9 hours
 
@@ -344,7 +344,7 @@ jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta
   if(class(sim_fit) != "try-error") {
   saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
   library(ggmcmc)
-  ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_", sp, ".pdf"), plot=c("traceplot"))
+  ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_od_", sp, ".pdf"), plot=c("traceplot"))
 
 # ci.median <- ci(ggs(sim_fit$samples, family="^N")) %>%
 #   select(Parameter, median)
@@ -408,11 +408,11 @@ if(i == 1) {
 } else {
   N_table <- bind_rows(N_table, N_est)
 }
-write.csv(N_table, file = paste0("Output/N_table.csv"), row.names = FALSE)
+write.csv(N_table, file = paste0("Output/N_table_od.csv"), row.names = FALSE)
 
 library(ggplot2)
 ggplot(N_est, aes(N_min, Median)) + geom_point() + theme_bw() + ggtitle(sp)
-ggsave(file = paste0("Output/Figures/Obs_Pred_", sp, ".pdf"))
+ggsave(file = paste0("Output/Figures/Obs_Pred_od_", sp, ".pdf"))
 
 if(i == 1) {
   summary_table <- data.frame(matrix(NA, nrow = 1, ncol = 9))
@@ -449,7 +449,7 @@ if(i == 1) {
     summary_table[i, "Rhat_max"] <- NA
     summary_table[i, "Converged"] <- NA
   } # end try
-  write.csv(summary_table, file = paste0("Output/summary_table.csv"), row.names = FALSE)
+  write.csv(summary_table, file = paste0("Output/summary_table_od.csv"), row.names = FALSE)
 } # end testing else statement
 
 
