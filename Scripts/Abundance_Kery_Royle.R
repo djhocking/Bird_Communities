@@ -275,7 +275,7 @@ dclass <- df_ind$Dist_bin # distance class for each observation
 tint <- df_ind$Time_bin
 
 # Bundle data and summarize Use VegHgt_Avg, Shrub_stm_total, Tree_stm_total
-str(jags.data <- list(n=n, 
+jags.data <- list(n=n, 
                       site=survey, 
                       dclass=as.numeric(dclass),
                       nsites=nsurveys, 
@@ -298,7 +298,7 @@ str(jags.data <- list(n=n,
                       siteVisit = as.numeric(df_z$SurveyID),
                       veg=as.numeric(df_abund_std$VegHgt_Avg),
                       shrub=as.numeric(df_abund_std$Shrub_stm_total),
-                      tree=as.numeric(df_abund_std$Tree_stm_total)))
+                      tree=as.numeric(df_abund_std$Tree_stm_total))
 
 # Create initial values (including for M and N) and list parameters to save
 Nst <- n + 1
@@ -317,9 +317,9 @@ inits <- function(){
 params <- c("beta.a0", "beta.a1", "beta.a2", "beta.a3", "alpha0", "alpha1", "beta0", "beta1", "beta2", "beta3", "beta4", "sigma.lam", "sigma.dist", "sigma.time", "N", "M", "PDETmean", "PAVAILmean", "Mtot", "Ntot", "meansig", "dens", "bayesp.pd", "bayesp.pa", "pavail", "pdet") #, "sigma") # "beta.a4", "alpha2", "alpha1", "alpha2", "alpha3", "alpha4",
 
 # MCMC settings
-ni <- 100000
+ni <- 200000
 nb <- 50000  # 10000
-nt <- 10     # 18
+nt <- 15     # 18
 nc <- 3
 
 if(testing) {
@@ -344,7 +344,7 @@ jagsUI::traceplot(sim_fit, parameters = c("beta.a0", "beta.a1", "beta.a2", "beta
   if(class(sim_fit) != "try-error") {
   saveRDS(sim_fit, file = paste0("Output/MCMC/", sp, ".Rds"))
   library(ggmcmc)
-  ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens"), file = paste0("Output/traceplots_", sp, ".pdf"), plot=c("traceplot"))
+  ggmcmc(ggs(sim_fit$samples, family = "^alpha|^beta|^sigma|^Mtot|^dens|^meansig"), file = paste0("Output/traceplots_", sp, ".pdf"), plot=c("traceplot"))
 
 # ci.median <- ci(ggs(sim_fit$samples, family="^N")) %>%
 #   select(Parameter, median)
@@ -395,7 +395,7 @@ N_est <- N_est[ , c("parameter", "50%", "2.5%", "97.5%")]
 df_year <- df_counts %>%
   select(Point, ID, Year, Visit, Survey) %>%
   distinct()
-df_year
+# df_year
 
 df_survey <- dplyr::left_join(df_surveyid, df_year)
 df_survey <- data.frame(df_survey, stringsAsFactors = FALSE)

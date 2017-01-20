@@ -45,8 +45,8 @@ cat("
     
     for(s in 1:nsites){
     # Add covariates to scale parameter DISTANCE (perceptibility)
-    log(sigma[s]) <- alpha0 + alpha1*tree[s] # + eps.dist[siteVisit[s]] # + alpha2*visit2[s] + alpha3*visit3[s] + alpha4*visit4[s] # + eps.dist[point[s]]
-    # sigma[s] ~ dunif(0, 14.9) # must be constrained to <15 if distance not standardized
+    # log(sigma[s]) <- alpha0 + alpha1*tree[s] # + eps.dist[siteVisit[s]] # + alpha2*visit2[s] + alpha3*visit3[s] + alpha4*visit4[s] # + eps.dist[point[s]]
+    sigma[s] ~ dunif(0, 20) # must be constrained to <15 if distance not standardized
     
     # Add covariates for availability here TIME-REMOVAL (availability)
     # p.a[s] <- exp(beta.a0) / (1+exp(beta.a0)) 
@@ -88,7 +88,7 @@ cat("
     N[s] ~ dbin(pavail[s],M[s])      # Number of available individuals
     M[s] ~ dpois(lambda[s])       # Abundance per survey/site/point
     # Add site-level covariates to lambda
-    log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*veg[s] + beta2*shrub[s] + beta4*year[s] # + beta3*tree[s] 
+    log(lambda[s]) <- beta0 + eps.lam[point[s]] + beta1*veg[s] + beta2*shrub[s] + beta3*tree[s] + beta4*year[s] #  
     }
     
     ######## Goodness of fit tests
